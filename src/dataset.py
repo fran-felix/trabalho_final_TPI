@@ -55,10 +55,11 @@ class DatasetAnotacoesFaces(Dataset):
 
     face = self.faces[int(idx)]
     sample = {
-      "image": self.ler_imagem_rgb(face["imagem"]),
+      #"image": self.ler_imagem_rgb(face["imagem"]),
       "landmarks": face["landmarks"],
       "caixa": face["caixa"],
       "atributos": face["atributos"],
+      "imagem": face["imagem"],
     }
     if self.transform:
       sample = self.transform(sample)
@@ -70,11 +71,11 @@ def test():
   face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
 
   for i, sample in enumerate(face_dataset.faces):
-      print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape)
+      print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape, sample['imagem'])
 
 
       ax = plt.subplot(1, 4, i + 1)
-      draw(ax, sample)
+      #draw(ax, sample)
       plt.tight_layout()
       ax.set_title('Sample #{}'.format(i))
       ax.axis('off')
