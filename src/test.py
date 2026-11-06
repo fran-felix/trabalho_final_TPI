@@ -1,9 +1,11 @@
 from dataset import DatasetAnotacoesFaces, ANNOTATIONS, IMAGES, REGIOES, CORES
 
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 
+face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
 
 def desenhar_caixa(ax, caixa, cor, **kwargs):
   x0, y0, x1, y1 = caixa
@@ -17,17 +19,22 @@ def desenhar_landmarks(ax, pts, s=10, legenda=False):
   if legenda:
       ax.legend(fontsize=8, loc="lower right", markerscale=1.5)
 
-
+# Testando o __getitem__ implementado
 def test1():
-  face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
 
   print(len(face_dataset))
   for i in range(5):
     sample = face_dataset[i]
     print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape, sample['imagem'].shape)
 
+# Inversão. Nota para o futuro
+def test3(exemplo, M, pts_recorte):
+  M_inversa = cv2.invertAffineTransform(M)
+  de_volta = face_dataset.transformar_pontos(pts_recorte, M_inversa)
+  print(f"erro máximo na ida e volta: {np.abs(de_volta - exemplo['landmarks']).max():.6f} pixels")
+
+# Testando se as funções de recorte e manipulação (adaptadas) funcionam na estrutura de dados montada
 def test2():
-  face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
 
   exemplo = next(f for f in face_dataset.faces if np.allclose(f["caixa"], [692, 90, 854, 326]))
   M = face_dataset.matriz_recorte(exemplo["caixa"])
@@ -52,6 +59,8 @@ def test2():
   desenhar_landmarks(axs[1], pts_recorte, s=8)
   axs[1].set_title("(b) recorte 256x256\nlandmarks transformados com a mesma M")
   plt.show()
+
+  test3(exemplo, M, pts_recorte)
 
 
 test1()
