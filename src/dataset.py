@@ -47,6 +47,13 @@ class DatasetAnotacoesFaces(Dataset):
       raise FileNotFoundError(f"Não foi possível ler a imagem: {caminho}")
     return cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB)
 
+  def imagem_para_tensor(self, caminho):
+    imagem = self.ler_imagem_rgb(caminho)
+
+    # OpenCV returns HWC; models typically expect CHW numeric tensors.
+    imagem = np.transpose(imagem, (2, 0, 1)).copy()
+    return torch.from_numpy(imagem).to(dtype=torch.float32) / 255.0
+
   def __getitem__(self, idx):
     if torch.is_tensor(idx):
       idx = idx.item()
@@ -55,11 +62,10 @@ class DatasetAnotacoesFaces(Dataset):
 
     face = self.faces[int(idx)]
     sample = {
-      #"image": self.ler_imagem_rgb(face["imagem"]),
       "landmarks": face["landmarks"],
       "caixa": face["caixa"],
       "atributos": face["atributos"],
-      "imagem": face["imagem"],
+      "imagem": self.imagem_para_tensor(face["imagem"]),
     }
     if self.transform:
       sample = self.transform(sample)
@@ -70,18 +76,18 @@ class DatasetAnotacoesFaces(Dataset):
 def test():
   face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
 
-  for i, sample in enumerate(face_dataset.faces):
-      print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape, sample['imagem'])
+  for i in range(len(face_dataset)):
+    sample = face_dataset[i]
+    print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape, sample['imagem'].shape)
 
+    ax = plt.subplot(1, 4, i + 1)
+    #draw(ax, sample)
+    plt.tight_layout()
+    ax.set_title('Sample #{}'.format(i))
+    ax.axis('off')
 
-      ax = plt.subplot(1, 4, i + 1)
-      #draw(ax, sample)
-      plt.tight_layout()
-      ax.set_title('Sample #{}'.format(i))
-      ax.axis('off')
-
-      if i == 3:
-        plt.show()
-        break
+    if i == 3:
+      plt.show()
+      break
 
 test()
