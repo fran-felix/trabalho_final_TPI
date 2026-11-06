@@ -1,20 +1,25 @@
-from pathlib import Path
-
 import cv2
 import torch
 from torch.utils.data import Dataset
-
-from collections import defaultdict
 from pathlib import Path
-
 import numpy as np
-import matplotlib.pyplot as plt
 
-from visualize_wflw import draw
 
 DATA = Path("/home/francisco/trabalho_final_TPI/data")
 ANNOTATIONS = DATA / "WFLW_annotations/list_98pt_rect_attr_train_test"
 IMAGES = DATA / "WFLW_images"
+
+REGIOES = {
+"contorno": range(0, 33), "sobrancelhas": range(33, 51), "nariz": range(51, 60),
+"olho direito": range(60, 68), "olho esquerdo": range(68, 76),
+"boca": range(76, 96), "pupilas": range(96, 98),
+} 
+
+CORES = {
+"contorno": "tab:blue", "sobrancelhas": "tab:brown", "nariz": "tab:green",
+"olho direito": "red", "olho esquerdo": "deepskyblue", "boca": "violet",
+"pupilas": "orange",
+}
 
 
 class DatasetAnotacoesFaces(Dataset):
@@ -22,12 +27,14 @@ class DatasetAnotacoesFaces(Dataset):
     self.annotations = Path(annotations)
     self.img_dir = Path(img_dir)
     self.transform = transform
-    self.faces_treino = [] # [0, 7499] train
-    self.faces_teste = [] # [7500, 9999] test
     self.tamanho_recorte = 256
 
-    self.faces_treino = self.ler_anotacoes("train")
+    # self.faces_treino = [] # [0, 7499] train
+    # self.faces_teste = [] # [7500, 9999] test
+    # self.faces_treino = self.ler_anotacoes("train")
     # self.faces_teste = self.ler_anotacoes("test")
+
+    self.faces = self.ler_anotacoes("train") + self.ler_anotacoes("test")
 
   def ler_anotacoes(self, split):
     arquivo = self.annotations / f"list_98pt_rect_attr_{split}.txt"
@@ -47,7 +54,7 @@ class DatasetAnotacoesFaces(Dataset):
     return faces
 
   def __len__(self):
-    return len(self.faces_treino) + len(self.faces_teste)
+    return len(self.faces)
 
   def ler_imagem_rgb(self, caminho):
     """Lê uma imagem com OpenCV e converte BGR para RGB."""
@@ -100,7 +107,7 @@ class DatasetAnotacoesFaces(Dataset):
     if idx is None:
       raise RuntimeError(f"Index inválido, não foi possível acessar a posição: {idx}")
 
-    face = self.faces_treino[int(idx)]
+    face = self.faces[int(idx)]
     face['imagem'], face['landmarks'] = self.recortar(face)
 
     sample = {
@@ -113,41 +120,3 @@ class DatasetAnotacoesFaces(Dataset):
       sample = self.transform(sample)
     
     return sample
-
-
-def test():
-  face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
-
-  print(len(face_dataset))
-  for i in range(5):
-    sample = face_dataset[i]
-    print(i, sample['landmarks'].shape, sample['caixa'].shape, sample['atributos'].shape, sample['imagem'].shape)
-
-test()
-
-def test2():
-  face_dataset = DatasetAnotacoesFaces(ANNOTATIONS, IMAGES)
-
-  exemplo = next(f for f in teste if np.allclose(f["caixa"], [692, 90, 854, 326]))
-  M = matriz_recorte(exemplo["caixa"])
-  recorte, pts_recorte = recortar(exemplo, M)
-
-  print("matriz M:\n", M.round(3))
-  print("landmark 60 na imagem original:", exemplo["landmarks"][60].round(1))
-  print("landmark 60 no recorte:        ", pts_recorte[60].round(1))
-
-  imagem = face_dataset.ler_imagem_rgb(exemplo["imagem"])
-  x0, y0, x1, y1 = exemplo["caixa"]
-  c = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
-  lado = MARGEM * max(x1 - x0, y1 - y0)
-
-  fig, axs = plt.subplots(1, 2, figsize=(13, 5.5), gridspec_kw={"width_ratios": [1.5, 1]})
-  axs[0].imshow(imagem)
-  desenhar_caixa(axs[0], exemplo["caixa"], "lime", lw=2)
-  desenhar_caixa(axs[0], [*(c - lado / 2), *(c + lado / 2)], "yellow", lw=2, ls="--")
-  axs[0].set_title(f"(a) original {imagem.shape[1]}x{imagem.shape[0]}\n"
-                  "verde: caixa anotada | amarelo: quadrado com margem de 25%")
-  axs[1].imshow(recorte)
-  desenhar_landmarks(axs[1], pts_recorte, s=8)
-  axs[1].set_title("(b) recorte 256x256\nlandmarks transformados com a mesma M")
-  plt.show()
